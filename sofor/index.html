@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#12303b">
+<meta name="rmsoo" content="rmsoo-sofor-1">
+<title>Servis planım</title>
+<style>
+:root{--ink:#14232a;--soft:#5f6d72;--line:#e2ddd1;--paper:#f7f4ee;--card:#fffefb;--navy:#12303b;--arr:#1d5a7a;--dep:#8a2233;--spc:#7a5a12;--ok:#17703f}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.35 "Times New Roman",Tinos,"Liberation Serif",Times,serif;padding-bottom:env(safe-area-inset-bottom)}
+header{background:var(--navy);color:#fff;padding:14px 16px 12px;padding-top:calc(14px + env(safe-area-inset-top))}
+header .k{font-size:13px;color:#b9c9cd}
+header h1{font-size:23px;margin:2px 0 2px}
+header .d{font-size:16px;color:#dfe8ea}
+header .m{font-size:13px;color:#b9c9cd;margin-top:4px}
+main{padding:10px 12px 24px;max-width:720px;margin:0 auto}
+.note{background:#fff3cd;color:#6b4c00;border:1px solid #f0d58a;border-radius:10px;padding:9px 12px;margin:8px 0;font-size:15px}
+.info{color:var(--soft);font-size:14px;margin:6px 2px 10px}
+.band{margin:16px 0 8px;font-weight:700;font-size:15px;letter-spacing:.4px;color:#fff;border-radius:8px;padding:6px 12px}
+.band.arr{background:var(--arr)}.band.dep{background:var(--dep)}.band.spc{background:var(--spc)}
+.trip{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:0 0 12px;overflow:hidden}
+.trip h2{margin:0;font-size:20px;padding:10px 12px 8px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.trip h2 small{font-size:14px;color:var(--soft);font-weight:400}
+.trip h2 .hs{font-size:13px;background:#f3effc;color:#5a3fb0;border:1px solid #b9a7e6;border-radius:6px;padding:1px 7px;font-weight:700}
+.st{display:flex;align-items:stretch;border-bottom:1px solid #efeade;min-height:64px}
+.st:last-of-type{border-bottom:0}
+.no{flex:0 0 52px;display:flex;align-items:center;justify-content:center;border:0;background:none;font:inherit;padding:0;cursor:pointer}
+.no span{width:34px;height:34px;border-radius:50%;background:#eef1ee;color:var(--soft);display:grid;place-items:center;font-weight:700;font-size:16px}
+.st.done .no span{background:var(--ok);color:#fff}
+.st.done .go b{text-decoration:line-through;color:var(--soft)}
+.go{flex:1;display:block;padding:9px 10px 9px 0;color:inherit;text-decoration:none;min-width:0}
+.go b{font-size:19px;display:block}
+.go .t{display:inline-block;font-size:13px;border:1px solid #d3cbb8;border-radius:6px;padding:0 6px;margin:3px 4px 0 0;color:var(--soft)}
+.go .t.r{border-color:#b9a7e6;color:#5a3fb0;background:#f3effc;font-weight:700}
+.go .a{display:block;font-size:14.5px;color:var(--soft);margin-top:3px}
+.go .a .mh{color:var(--ink);font-weight:700}
+.nav{flex:0 0 74px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--arr);text-decoration:none;font-size:12.5px;border-left:1px solid #efeade;gap:2px}
+.nav svg{width:26px;height:26px}
+.nav.off{color:#b5aea0}
+.route{display:block;text-align:center;padding:11px;border-top:1px solid var(--line);color:var(--arr);text-decoration:none;font-weight:700;font-size:16px;background:#f6f9fa}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 16px;margin:14px 0;font-size:17px}
+.box h2{margin:0 0 8px;font-size:21px}
+.ok{color:var(--ok)}
+.btn{display:inline-block;margin-top:10px;background:var(--navy);color:#fff;border:0;border-radius:10px;padding:11px 16px;font:inherit;font-weight:700;text-decoration:none}
+footer{color:var(--soft);font-size:12.5px;text-align:center;padding:4px 16px 20px}
+</style>
+</head>
+<body>
+<header id="hd"><div class="k">Servis planım</div><h1 id="h1">Şoför sayfası</h1><div class="d" id="hdd"></div><div class="m" id="hdm"></div></header>
+<main id="mn"><div class="box">Yükleniyor…</div></main>
+<footer>Bu sayfa planı yalnız bu telefonda gösterir; hiçbir yere bilgi göndermez.</footer>
+<script>
+(function () {
+  'use strict';
+  var KS = 'rmsoo_sofor_k', LS = 'rmsoo_sofor_last', DS = 'rmsoo_sofor_done';
+  var mn = document.getElementById('mn');
+  function st(k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+  function put(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function b64u(s) { s = String(s).replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; var b = atob(s), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+  function hex(buf) { return Array.prototype.map.call(new Uint8Array(buf), function (x) { return ('0' + x.toString(16)).slice(-2); }).join(''); }
+  function today() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function box(h) { mn.innerHTML = '<div class="box">' + h + '</div>'; }
+  function clean() { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { } }
+  var NAVI = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 4.5 20.3l.7.7L12 18l6.8 3 .7-.7z"/></svg>';
+  function ll(p) { return Number(p[0]).toFixed(5) + ',' + Number(p[1]).toFixed(5); }
+  function nav(p) { return 'https://www.google.com/maps/dir/?api=1&destination=' + ll(p) + '&travelmode=driving'; }
+  function route(pts, dest) {
+    var u = []; pts.forEach(function (p) { var k = ll(p); if (u[u.length - 1] !== k) u.push(k); });
+    var d = dest ? ll(dest) : u.pop(); if (!d) return '';
+    var wp = u.filter(function (k) { return k !== d; }).slice(0, 9);
+    return 'https://www.google.com/maps/dir/?api=1&destination=' + d + (wp.length ? '&waypoints=' + wp.join('%7C') : '') + '&travelmode=driving';
+  }
+  if (!window.crypto || !crypto.subtle || typeof DecompressionStream === 'undefined') { box('<h2>Tarayıcı eski</h2>Bu sayfa için telefonunuzdaki Chrome ya da Safari tarayıcısını güncelleyin.'); return; }
+
+  function keyId(raw) { return crypto.subtle.digest('SHA-256', raw).then(function (h) { return hex(h).slice(0, 8); }); }
+  function decrypt(frag) {
+    var p = String(frag).split('.'); if (p.length !== 3) return Promise.reject(new Error('bozuk'));
+    var keys = st(KS, {}), k = keys[p[0]];
+    if (!k) { var e = new Error('anahtar'); e.code = 'nokey'; return Promise.reject(e); }
+    return crypto.subtle.importKey('raw', b64u(k.k), { name: 'AES-GCM' }, false, ['decrypt'])
+      .then(function (key) { return crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64u(p[1]), additionalData: new TextEncoder().encode(p[0]) }, key, b64u(p[2])); })
+      .then(function (z) { return new Response(new Blob([z]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text(); })
+      .then(function (t) { return JSON.parse(t); });
+  }
+  function render(P, frag, old) {
+    document.getElementById('h1').textContent = P.dr || 'Şoför';
+    document.getElementById('hdd').textContent = P.dl || P.dt || '';
+    var hm = P.at ? new Date(P.at) : null;
+    document.getElementById('hdm').textContent = [(P.vs || []).join(' + '), P.kn || '', hm ? 'Hazırlandı ' + ('0' + hm.getHours()).slice(-2) + ':' + ('0' + hm.getMinutes()).slice(-2) : ''].filter(Boolean).join(' · ');
+    document.title = (P.dr || 'Servis planım') + ' · ' + (P.dl || '');
+    var done = st(DS, {}), dd = done[P.dt] || [];
+    var h = '';
+    if (P.dt && P.dt !== today()) h += '<div class="note">Bu plan <b>' + esc(P.dl || P.dt) + '</b> içindir. Bugünün planı için WhatsApp\'tan gelen son bağlantıya dokunun.</div>';
+    else if (old) h += '<div class="note">Son açtığınız plan gösteriliyor. Plan değiştiyse WhatsApp\'tan gelen yeni bağlantıya dokunun.</div>';
+    h += '<p class="info">Öğrenciye dokunun: Google Haritalar yol tarifini açar. Soldaki numaraya dokunarak öğrenciyi <b>alındı</b> diye işaretleyebilirsiniz.</p>';
+    var sec = { arr: ['GELİŞLER', 'öğrencileri alıp kuruma getir'], dep: ['GİDİŞLER', 'kurumdan alıp eve bırak'], spc: ['ÖZEL SEFERLER', 'RAM / hastane'] };
+    ['arr', 'dep', 'spc'].forEach(function (d) {
+      var T = (P.tr || []).map(function (t, i) { t._i = i; return t; }).filter(function (t) { return t.d === d; });
+      if (!T.length) return;
+      h += '<div class="band ' + d + '">' + sec[d][0] + ' <span style="font-weight:400;opacity:.85">· ' + sec[d][1] + '</span></div>';
+      T.forEach(function (t) {
+        var n = (t.st || []).length, pts = (t.st || []).filter(function (s) { return s.p; }).map(function (s) { return s.p; });
+        h += '<section class="trip"><h2>' + esc(d === 'arr' ? 'Saat ' + t.s + ' gelişi' : d === 'dep' ? 'Saat ' + t.s + ' gidişi' : 'Saat ' + t.s) + ' <small>' + (d === 'spc' ? esc(t.note || '') : n + ' öğrenci' + (t.c ? ' + ' + t.c + ' veli' : '')) + (t.v ? ' · ' + esc(t.v) : '') + '</small>' + (t.h ? '<span class="hs">HOSTES</span>' : '') + '</h2>';
+        (t.st || []).forEach(function (s, j) {
+          var id = t._i + '-' + j, on = dd.indexOf(id) >= 0, url = s.p ? nav(s.p) : '';
+          var tags = (s.r ? '<span class="t r">R</span>' : '') + (s.t || []).map(function (x) { return '<span class="t">' + esc(x) + '</span>'; }).join('');
+          var adr = (s.m ? '<span class="mh">' + esc(s.m) + '</span>' + (s.a ? ' · ' : '') : '') + esc(s.a || '');
+          var inner = '<b>' + esc(s.n) + '</b>' + (tags ? tags : '') + (adr ? '<span class="a">' + adr + '</span>' : '');
+          h += '<div class="st' + (on ? ' done' : '') + '" data-id="' + id + '"><button class="no" type="button" aria-label="Alındı olarak işaretle"><span>' + (j + 1) + '</span></button>' +
+            (url ? '<a class="go" href="' + url + '" target="_blank" rel="noopener noreferrer">' + inner + '</a><a class="nav" href="' + url + '" target="_blank" rel="noopener noreferrer">' + NAVI + 'Yol tarifi</a>'
+              : '<div class="go">' + inner + '<span class="a">Konum kayıtlı değil</span></div><span class="nav off">' + NAVI + 'Konum yok</span>') + '</div>';
+        });
+        var r = d === 'arr' ? route(pts, P.c) : route(pts);
+        if (pts.length > 1 || (d === 'arr' && pts.length && P.c)) h += '<a class="route" href="' + r + '" target="_blank" rel="noopener noreferrer">🧭 Tüm güzergâhı haritada aç</a>';
+        h += '</section>';
+      });
+    });
+    if (!(P.tr || []).length) h += '<div class="box">Bu gün için size planlanmış sefer yok.</div>';
+    mn.innerHTML = h;
+    Array.prototype.forEach.call(mn.querySelectorAll('.st .no'), function (b) {
+      b.onclick = function () { var row = b.parentNode, id = row.getAttribute('data-id'), all = st(DS, {}), L = all[P.dt] || [], k = L.indexOf(id);
+        if (k >= 0) L.splice(k, 1); else L.push(id); all[P.dt] = L;
+        Object.keys(all).sort().reverse().slice(4).forEach(function (x) { delete all[x]; }); put(DS, all); row.classList.toggle('done', k < 0); };
+    });
+  }
+  function show(frag, old) {
+    return decrypt(frag).then(function (P) { put(LS, { p: frag, at: Date.now() }); render(P, frag, old); }, function (e) {
+      if (e && e.code === 'nokey') box('<h2>Bu telefon eşleştirilmemiş</h2>Planı görmek için bu telefonun bir kez eşleştirilmesi gerekir. Kurumdaki bilgisayarda <b>Ayarlar → Şoför sayfası</b> bölümünde adınızın yanındaki <b>QR kodu göster</b>\'e basılır; telefon kamerasıyla o kodu okutun. Sonra WhatsApp\'taki plan bağlantısına yeniden dokunun.');
+      else box('<h2>Plan açılamadı</h2>Bu bağlantı bu telefon için hazırlanmamış ya da eşleştirme yenilenmiş. Kurumdan yeni QR kodu okutun, sonra WhatsApp\'tan gelen son bağlantıya dokunun.');
+    });
+  }
+  function go() {
+  var q = new URLSearchParams(location.hash.slice(1));
+  if (q.get('k')) {
+    var kk = q.get('k'), nm = q.get('n') || '';
+    clean();
+    var raw; try { raw = b64u(kk); } catch (e) { raw = null; }
+    if (!raw || raw.length !== 32) { box('<h2>Eşleştirme kodu geçersiz</h2>Kodu kurumdaki bilgisayardan yeniden okutun.'); return; }
+    keyId(raw).then(function (id) {
+      var keys = st(KS, {}); keys[id] = { k: kk, n: nm, at: Date.now() };
+      Object.keys(keys).sort(function (a, b) { return keys[b].at - keys[a].at; }).slice(6).forEach(function (x) { delete keys[x]; });
+      put(KS, keys);
+      document.getElementById('h1').textContent = nm || 'Şoför sayfası';
+      box('<h2 class="ok">✓ Telefon eşleştirildi</h2>' + (nm ? '<b>' + esc(nm) + '</b> için ' : '') + 'bu telefon hazır. Bundan sonra WhatsApp\'tan gelen plan bağlantısına dokunduğunuzda günün planı burada açılır.<p style="margin:12px 0 0;color:#5f6d72;font-size:15px">Bu sayfayı bir kez açmanız yeterli. Telefonu değiştirirseniz ya da tarayıcı verilerini silerseniz kodu yeniden okutun.</p>' + (st(LS, null) ? '<a class="btn" href="#" id="lastBtn">Son planı aç</a>' : ''));
+      var lb = document.getElementById('lastBtn'); if (lb) lb.onclick = function (e) { e.preventDefault(); show(st(LS, {}).p, true); };
+    });
+  } else if (q.get('p')) {
+    var f = q.get('p'); clean(); show(f, false);
+  } else {
+    var last = st(LS, null);
+    if (last && last.p) show(last.p, true);
+    else box('<h2>Servis planım</h2>' + (Object.keys(st(KS, {})).length ? 'Telefonunuz eşleştirilmiş. Günün planını açmak için WhatsApp\'tan gelen plan bağlantısına dokunun.' : 'Bu sayfa şoförlerin günlük servis planını gösterir. Önce kurumdaki bilgisayardan QR kodu okutarak telefonunuzu eşleştirin.'));
+  }
+  }
+  window.addEventListener('hashchange', function () { if (location.hash.length > 1) { window.scrollTo(0, 0); go(); } });
+  go();
+})();
+</script>
+</body>
+</html>
