@@ -62,6 +62,24 @@ footer{color:var(--soft);font-size:12.5px;text-align:center;padding:4px 16px 20p
   var mn = document.getElementById('mn');
   function st(k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
   function put(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
+  var MEM = {}; // bu sayfada çözülen anahtarlar: tarayıcı kaydetmese de plan açılır
+  function canStore() { try { localStorage.setItem('rmsoo_t', '1'); var ok = localStorage.getItem('rmsoo_t') === '1'; localStorage.removeItem('rmsoo_t'); return ok; } catch (e) { return false; } }
+  var PRIV = null; // Safari Özel (gizli) sekme: dosya deposu "unknown transient reason" ile reddedilir
+  function privMode() { if (!PRIV) PRIV = new Promise(function (res) { setTimeout(function () { res(false); }, 1500);
+    try { if (!navigator.storage || !navigator.storage.getDirectory) return res(false); navigator.storage.getDirectory().then(function () { res(false); }, function (e) { res(/unknown transient reason/i.test(String((e && e.message) || e))); }); } catch (e) { res(false); } }); return PRIV; }
+  function keepAsk() { try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(null, function () { }); } catch (e) { } }
+  var IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  function fixHelp() { return IOS ? '<b>iPhone:</b> Safari <b>Özel</b> (gizli) modda açıksa kod hatırlanmaz. Safari\'de sekmeler ekranını açıp <b>Özel</b> yerine normal sekmelere geçin. <b>Ayarlar → Safari → Tüm Çerezleri Engelle</b> de kapalı olmalı.'
+    : '<b>Android:</b> Bağlantı <b>gizli sekmede</b> açılıyorsa kod hatırlanmaz; normal sekmede açın. WhatsApp bağlantıyı kendi içinde açıyorsa sağ üstteki <b>⋮</b> menüsünden <b>Chrome\'da aç</b>\'ı seçin.'; }
+  function stored(id) { var k = st(KS, {})[id]; return !!(k && k.k); }
+  // kod kutusu: yalnız harf/rakam yazılır, tireler kendiliğinden
+  function codeBox(el, n) { var prev = '';
+    function f(ev) { if (ev && ev.isComposing) return; var v = el.value, pos = el.selectionStart == null ? v.length : el.selectionStart;
+      var cl = function (t) { return t.replace(/[iıİ]/g, 'I').toUpperCase().replace(/[^0-9A-Z]/g, ''); }, raw = cl(v), b = cl(v.slice(0, pos)).length;
+      if (ev && raw === prev.replace(/-/g, '')) { if (ev.inputType === 'deleteContentBackward' && b > 0) { raw = raw.slice(0, b - 1) + raw.slice(b); b--; } else if (ev.inputType === 'deleteContentForward') raw = raw.slice(0, b) + raw.slice(b + 1); }
+      raw = raw.slice(0, n); b = Math.min(b, raw.length); var out = raw.replace(/(.{4})(?=.)/g, '$1-');
+      if (out !== v) { el.value = out; if (document.activeElement === el) { var c = b + Math.floor(Math.max(0, b - 1) / 4); try { el.setSelectionRange(c, c); } catch (e) { } } } prev = out; }
+    el.addEventListener('input', f); el.addEventListener('compositionend', function () { f(null); }); el.addEventListener('blur', function () { f(null); }); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function b64u(s) { s = String(s).replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; var b = atob(s), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
   function hex(buf) { return Array.prototype.map.call(new Uint8Array(buf), function (x) { return ('0' + x.toString(16)).slice(-2); }).join(''); }
@@ -91,11 +109,11 @@ footer{color:var(--soft);font-size:12.5px;text-align:center;padding:4px 16px 20p
       .then(function (k) { return crypto.subtle.deriveBits({ name: 'PBKDF2', salt: te.encode('rmsoo-sofor-1'), iterations: 150000, hash: 'SHA-256' }, k, 256); })
       .then(function (b) { return new Uint8Array(b); });
   }
-  function saveKey(raw, nm) { return keyId(raw).then(function (id) { var keys = st(KS, {}); keys[id] = { k: enc64(raw), n: nm || '', at: Date.now() };
-    Object.keys(keys).sort(function (a, b) { return keys[b].at - keys[a].at; }).slice(6).forEach(function (x) { delete keys[x]; }); put(KS, keys); return id; }); }
+  function saveKey(raw, nm) { return keyId(raw).then(function (id) { MEM[id] = enc64(raw); var keys = st(KS, {}); keys[id] = { k: MEM[id], n: nm || '', at: Date.now() };
+    Object.keys(keys).sort(function (a, b) { return keys[b].at - keys[a].at; }).slice(6).forEach(function (x) { delete keys[x]; }); put(KS, keys); keepAsk(); return id; }); }
   function decrypt(frag) {
     var p = String(frag).split('.'); if (p.length !== 3) return Promise.reject(new Error('bozuk'));
-    var keys = st(KS, {}), k = keys[p[0]];
+    var keys = st(KS, {}), k = keys[p[0]] || (MEM[p[0]] ? { k: MEM[p[0]] } : null);
     if (!k) { var e = new Error('anahtar'); e.code = 'nokey'; return Promise.reject(e); }
     return crypto.subtle.importKey('raw', b64u(k.k), { name: 'AES-GCM' }, false, ['decrypt'])
       .then(function (key) { return crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64u(p[1]), additionalData: new TextEncoder().encode(p[0]) }, key, b64u(p[2])); })
@@ -144,22 +162,30 @@ footer{color:var(--soft);font-size:12.5px;text-align:center;padding:4px 16px 20p
     });
   }
   function show(frag, old) {
-    return decrypt(frag).then(function (P) { put(LS, { p: frag, at: Date.now() }); render(P, frag, old); }, function (e) {
+    return decrypt(frag).then(function (P) { var id = String(frag).split('.')[0], keys = st(KS, {}); put(LS, { p: frag, at: Date.now() });
+      if (keys[id] && !keys[id].n && P.dr) { keys[id].n = P.dr; put(KS, keys); } render(P, frag, old); keepWarn(id); }, function (e) {
       if (e && e.code === 'nokey') askCode(frag);
       else box('<h2>Plan açılamadı</h2>Bu bağlantı bu telefon için hazırlanmamış ya da eşleştirme yenilenmiş. Kurumdan yeni QR kodu okutun, sonra WhatsApp\'tan gelen son bağlantıya dokunun.');
     });
   }
+  function keepWarn(id) { privMode().then(function (pv) { if ((!pv && stored(id)) || document.getElementById('keepW')) return;
+    var n = document.createElement('div'); n.className = 'note'; n.id = 'keepW'; n.innerHTML = '<b>Bu tarayıcı kodu hatırlamıyor:</b> bir sonraki bağlantıda kod yeniden sorulur. ' + fixHelp(); mn.insertBefore(n, mn.firstChild); }); }
   // anahtar yoksa: bilgisayardaki QR'ın altında yazan kod bu tarayıcıda yazılır (QR başka uygulamada açıldıysa da çalışır)
   function askCode(frag) {
     var keys = st(KS, {}), names = Object.keys(keys).map(function (k) { return keys[k].n; }).filter(Boolean);
-    box('<h2>Bu telefon bu plan için eşleştirilmemiş</h2>' + (names.length ? '<p style="margin:0 0 10px;color:#6b4c00">Bu tarayıcı <b>' + esc(names.join(', ')) + '</b> için eşleştirilmiş; bu plan başka bir şoför için ya da kod yenilenmiş.</p>' : '') +
+    box('<div class="note" id="cdPv" style="display:none"></div><h2>Bu telefon bu plan için eşleştirilmemiş</h2>' + (names.length ? '<p style="margin:0 0 10px;color:#6b4c00">Bu tarayıcı <b>' + esc(names.join(', ')) + '</b> için eşleştirilmiş; bu plan başka bir şoför için ya da kod yenilenmiş.</p>' : '') +
       'Kurumdaki bilgisayarda <b>Ayarlar → 2d) Şoför sayfası → QR kodu göster</b> penceresinde QR\'ın altında yazan <b>12 karakterlik kodu</b> buraya yazın (bir kez yeterli):' +
-      '<input id="cd" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" style="display:block;width:100%;margin:12px 0 0;padding:12px;font:inherit;font-size:22px;letter-spacing:2px;text-transform:uppercase;border:1px solid #d3cbb8;border-radius:10px;text-align:center">' +
-      '<button class="btn" id="cdGo" type="button" style="width:100%">Eşleştir ve planı aç</button><p id="cdMsg" style="margin:10px 0 0;color:#8a2233;font-size:15px"></p>');
+      '<input id="cd" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" style="display:block;width:100%;margin:12px 0 0;padding:12px;font:inherit;font-size:22px;letter-spacing:2px;text-transform:uppercase;border:1px solid #d3cbb8;border-radius:10px;text-align:center">' +
+      '<button class="btn" id="cdGo" type="button" style="width:100%">Eşleştir ve planı aç</button><p id="cdMsg" style="margin:10px 0 0;color:#8a2233;font-size:15px"></p>' +
+      '<p class="info" id="cdWhy" style="margin:12px 0 0">Tireleri yazmanız gerekmez. Kod bir kez yazılınca bu telefon hatırlar. Yazdığınız hâlde her seferinde soruyorsa: ' + fixHelp() + '</p>');
+    codeBox(document.getElementById('cd'), 12);
+    privMode().then(function (pv) { if (!pv && canStore()) return; var w = document.getElementById('cdPv'), y = document.getElementById('cdWhy'); if (!w) return;
+      w.innerHTML = '<b>Bu tarayıcı kodu kaydedemiyor</b> (gizli sekme ya da çerezler kapalı). Kodu yazarsanız plan açılır ama sonraki bağlantıda yine sorulur. ' + fixHelp(); w.style.display = ''; if (y) y.style.display = 'none'; });
     var go2 = function () { var m = document.getElementById('cdMsg'), b = document.getElementById('cdGo'); m.textContent = ''; b.disabled = true; b.textContent = 'Denetleniyor…';
-      derive(document.getElementById('cd').value).then(function (raw) { return keyId(raw).then(function (id) {
+      var cv = norm(document.getElementById('cd').value);
+      derive(cv).then(function (raw) { return keyId(raw).then(function (id) {
         if (id !== String(frag).split('.')[0]) { m.textContent = 'Bu kod bu plan için değil. Adınızın yanındaki kodu yazdığınızdan emin olun; kod yenilendiyse yeni kodu yazın.'; b.disabled = false; b.textContent = 'Eşleştir ve planı aç'; return; }
-        return saveKey(raw, '').then(function () { show(frag, false); }); }); }, function () { m.textContent = 'Kod 12 karakter olmalı (ör. 7KQ4-M2XP-9HTA).'; b.disabled = false; b.textContent = 'Eşleştir ve planı aç'; }); };
+        return saveKey(raw, '').then(function () { show(frag, false); }); }); }, function () { m.textContent = cv.length !== 12 ? 'Kod 12 karakter olmalı (ör. 7KQ4-M2XP-9HTA). Şu an ' + cv.length + ' karakter yazıldı.' : 'Kodda 0, 1, O ya da I bulunmaz; bilgisayardaki kodu yeniden kontrol edin.'; b.disabled = false; b.textContent = 'Eşleştir ve planı aç'; }); };
     document.getElementById('cdGo').onclick = go2; document.getElementById('cd').onkeydown = function (ev) { if (ev.key === 'Enter') go2(); };
   }
   function go() {
@@ -169,8 +195,9 @@ footer{color:var(--soft);font-size:12.5px;text-align:center;padding:4px 16px 20p
     clean();
     var rawP; if (cc) rawP = derive(cc); else { var raw; try { raw = b64u(kk); } catch (e) { raw = null; } rawP = raw && raw.length === 32 ? Promise.resolve(raw) : Promise.reject(new Error('kod')); }
     box('Eşleştiriliyor…');
-    rawP.then(function (raw) { return saveKey(raw, nm); }).then(function () {
+    rawP.then(function (raw) { return saveKey(raw, nm); }).then(function (id) { return privMode().then(function (pv) { return pv || !stored(id); }); }).then(function (bad) {
       document.getElementById('h1').textContent = nm || 'Şoför sayfası';
+      if (bad) { box('<h2>⚠ Kod bu tarayıcıda saklanamıyor</h2>Bu tarayıcı gizli modda ya da çerezleri engelliyor; eşleştirme sayfa kapanınca silinir ve plan bağlantısı her seferinde kod sorar.<p style="margin:12px 0 0">' + fixHelp() + '</p><p style="margin:12px 0 0">Ayarı düzelttikten sonra QR kodunu yeniden okutun.</p>'); return; }
       box('<h2 class="ok">✓ Telefon eşleştirildi</h2>' + (nm ? '<b>' + esc(nm) + '</b> için ' : '') + 'bu telefon hazır. Bundan sonra WhatsApp\'tan gelen plan bağlantısına dokunduğunuzda günün planı açılır.<p style="margin:12px 0 0;color:#5f6d72;font-size:15px">Plan bağlantısını açınca yine "eşleştirilmemiş" yazarsa, bilgisayardaki QR\'ın altında yazan 12 karakterlik kodu orada bir kez yazmanız yeterli.</p>' + (st(LS, null) ? '<a class="btn" href="#" id="lastBtn">Son planı aç</a>' : ''));
       var lb = document.getElementById('lastBtn'); if (lb) lb.onclick = function (e) { e.preventDefault(); show(st(LS, {}).p, true); };
     }, function () { box('<h2>Eşleştirme kodu geçersiz</h2>Kodu kurumdaki bilgisayardan yeniden okutun.'); });
@@ -185,7 +212,7 @@ footer{color:var(--soft);font-size:12.5px;text-align:center;padding:4px 16px 20p
   window.addEventListener('hashchange', function () { if (location.hash.length > 1) { window.scrollTo(0, 0); go(); } });
   document.getElementById('unpair').onclick = function () {
     if (!confirm('Bu telefondaki eşleştirme ve kayıtlı plan silinsin mi? Planları yeniden görmek için kurumdan yeni QR kodu okutmanız gerekir.')) return;
-    try { localStorage.removeItem(KS); localStorage.removeItem(LS); localStorage.removeItem(DS); } catch (e) { }
+    MEM = {}; try { localStorage.removeItem(KS); localStorage.removeItem(LS); localStorage.removeItem(DS); } catch (e) { }
     document.getElementById('h1').textContent = 'Şoför sayfası'; document.getElementById('hdd').textContent = ''; document.getElementById('hdm').textContent = '';
     box('<h2>Eşleştirme kaldırıldı</h2>Bu telefonda kayıtlı anahtar ve plan silindi. Yeniden kullanmak için kurumdaki bilgisayardan QR kodunu okutun.');
   };
