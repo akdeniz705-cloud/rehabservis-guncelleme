@@ -54,7 +54,7 @@ footer{color:var(--soft);font-size:12.5px;text-align:center;padding:4px 16px 20p
 <body>
 <header id="hd"><div class="k">Servis planım</div><h1 id="h1">Şoför sayfası</h1><div class="d" id="hdd"></div><div class="m" id="hdm"></div></header>
 <main id="mn"><div class="box">Yükleniyor…</div></main>
-<footer>Bu sayfa planı yalnız bu telefonda gösterir; hiçbir yere bilgi göndermez.</footer>
+<footer>Bu sayfa planı yalnız bu telefonda gösterir; hiçbir yere bilgi göndermez.<br><button type="button" id="unpair" style="margin-top:10px;background:none;border:1px solid #d3cbb8;border-radius:8px;padding:6px 12px;font:inherit;font-size:13px;color:#5f6d72">Bu telefondaki eşleştirmeyi kaldır</button></footer>
 <script>
 (function () {
   'use strict';
@@ -160,6 +160,12 @@ footer{color:var(--soft);font-size:12.5px;text-align:center;padding:4px 16px 20p
   }
   }
   window.addEventListener('hashchange', function () { if (location.hash.length > 1) { window.scrollTo(0, 0); go(); } });
+  document.getElementById('unpair').onclick = function () {
+    if (!confirm('Bu telefondaki eşleştirme ve kayıtlı plan silinsin mi? Planları yeniden görmek için kurumdan yeni QR kodu okutmanız gerekir.')) return;
+    try { localStorage.removeItem(KS); localStorage.removeItem(LS); localStorage.removeItem(DS); } catch (e) { }
+    document.getElementById('h1').textContent = 'Şoför sayfası'; document.getElementById('hdd').textContent = ''; document.getElementById('hdm').textContent = '';
+    box('<h2>Eşleştirme kaldırıldı</h2>Bu telefonda kayıtlı anahtar ve plan silindi. Yeniden kullanmak için kurumdaki bilgisayardan QR kodunu okutun.');
+  };
   go();
 })();
 </script>
